@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gaming PC Center – Sign In / Sign Up</title>
+    <style>
+        body {
+            font-family: 'Times New Roman', Times, serif, sans-serif;
+            background-image: url('background.jpg');
+            background-size: cover;
+            background-position: center;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            flex-direction: column;
+            color: #ffffff; /* Global white text */
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+            .header h1 {
+                font-size: 36px;
+                color: #ffffff;
+                margin: 0;
+            }
+
+            .header h2 {
+                font-size: 20px;
+                color: #ffffff;
+                margin: 5px 0;
+            }
+
+            .header p {
+                font-size: 11px;
+                color: #ffffff;
+                margin: 0;
+            }
+
+        .container {
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+            color: #000000; /* Text inside form is black */
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+            .input-group label {
+                display: block;
+                text-align: left;
+                margin-bottom: 5px;
+                color: #000000; /* Form labels */
+            }
+
+            .input-group input {
+                width: 100%;
+                padding: 10px;
+                box-sizing: border-box;
+            }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #signup-btn {
+            background: #3498db;
+        }
+
+        #signin-btn {
+            background: #4CAF50;
+            margin-bottom: 10px;
+        }
+
+        .signup-link {
+            font-size: 14px;
+            color: #000000;
+            cursor: pointer;
+        }
+
+            .signup-link:hover {
+                text-decoration: underline;
+            }
+
+        .hidden {
+            display: none;
+        }
+
+        #redirect-link {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #000000;
+            text-align: center;
+        }
+    </style>
+
+</head>
+<body>
+  <div class="header">
+    <h1>Gaming PC Center</h1>
+    <h2 id="page-title">SIGN IN</h2>
+    <p>DBMS Lab Project by 024, 022, 051</p>
+  </div>
+
+  <div class="container">
+    <!-- SIGN IN FORM -->
+    <div id="signin-form">
+      <div class="input-group">
+        <label for="signin-username">Username</label>
+        <input type="text" id="signin-username" required />
+      </div>
+      <div class="input-group">
+        <label for="signin-password">Password</label>
+        <input type="password" id="signin-password" required />
+      </div>
+      <button id="signin-btn" onclick="signIn()">Sign In</button>
+      <p class="signup-link" onclick="showSignUpForm()">Don't have an account? Sign Up</p>
+    </div>
+
+    <!-- SIGN UP FORM -->
+    <div id="signup-form" class="hidden">
+      <div class="input-group">
+        <label for="username">Username</label>
+        <input type="text" id="username" required />
+      </div>
+      <div class="input-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" required />
+      </div>
+      <div class="input-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" required />
+      </div>
+      <div class="input-group">
+        <label for="address">Address</label>
+        <input type="text" id="address" required />
+      </div>
+      <button id="signup-btn" onclick="signUp()">Sign Up</button>
+      <p class="signup-link" onclick="showSignInForm()">Already have an account? Sign In</p>
+    </div>
+
+    <div id="redirect-link"></div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:3000/api/users';
+
+    function showSignUpForm() {
+      document.getElementById('signin-form').classList.add('hidden');
+      document.getElementById('signup-form').classList.remove('hidden');
+      document.getElementById('page-title').innerText = 'SIGN UP';
+      document.getElementById('redirect-link').innerText = '';
+    }
+
+    function showSignInForm() {
+      document.getElementById('signup-form').classList.add('hidden');
+      document.getElementById('signin-form').classList.remove('hidden');
+      document.getElementById('page-title').innerText = 'SIGN IN';
+      document.getElementById('redirect-link').innerText = '';
+    }
+
+    async function signUp() {
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      const email    = document.getElementById('email').value.trim();
+      const address  = document.getElementById('address').value.trim();
+
+      if (!username || !password || !email || !address) {
+        return alert('All fields are required.');
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/signup`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password, email, address })
+        });
+        if (res.ok) {
+          document.getElementById('redirect-link').innerText =
+            'Sign Up Successful! Redirecting to Login...';
+          setTimeout(showSignInForm, 2000);
+        } else {
+          const text = await res.text();
+          alert('Sign Up failed: ' + text);
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Error connecting to server.');
+      }
+    }
+
+    async function signIn() {
+      const username = document.getElementById('signin-username').value.trim();
+      const password = document.getElementById('signin-password').value;
+      if (!username || !password) {
+        return alert('Username and password required.');
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/signin`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+
+        if (res.ok) {
+          const { userId } = await res.json();
+          // Save user session however you like; here we store in sessionStorage
+          sessionStorage.setItem('userId', userId);
+          window.location.href = 'Store.html';
+        } else {
+          const text = await res.text();
+          alert('Sign In failed: ' + text);
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Error connecting to server.');
+      }
+    }
+  </script>
+</body>
+</html>

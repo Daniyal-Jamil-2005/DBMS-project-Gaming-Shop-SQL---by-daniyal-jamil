@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gaming PC Center Store</title>
+    <style>
+        body {
+            background: url('background.jpg') no-repeat center center fixed;
+            background-size: cover;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #f0f0f0;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 30px auto;
+            padding: 30px;
+            background-color: rgba(0, 0, 0, 0.85);
+            box-shadow: 0 0 35px rgba(0, 0, 0, 0.5);
+            border-radius: 20px;
+            position: relative;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+            .header h1 {
+                font-size: 2.5em;
+                color: #00ffd5;
+                text-shadow: 0 0 10px #00ffd5;
+            }
+
+        .logout-btn,
+        .cart-btn,
+        .view-orders-btn {
+            position: absolute;
+            top: 15px;
+            font-weight: bold;
+            color: #00ffd5;
+            cursor: pointer;
+            text-decoration: none;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 6px 12px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+            .logout-btn:hover,
+            .cart-btn:hover,
+            .view-orders-btn:hover {
+                background: #00ffd5;
+                color: #000;
+            }
+
+        .cart-btn {
+            right: 240px;
+        }
+
+        .view-orders-btn {
+            right: 125px;
+        }
+
+        .logout-btn {
+            right: 20px;
+        }
+
+        .category-heading {
+            font-size: 1.8em;
+            margin: 30px 0 20px;
+            text-align: center;
+            color: #ffcc00;
+            border-bottom: 2px solid #ffcc00;
+            padding-bottom: 5px;
+        }
+
+        .item {
+            border: 1px solid #333;
+            margin-bottom: 30px;
+            padding: 20px;
+            border-radius: 15px;
+            background-color: rgba(30, 30, 30, 0.9);
+            text-align: center;
+            transition: transform 0.3s;
+        }
+
+            .item:hover {
+                transform: scale(1.02);
+            }
+
+            .item img {
+                max-width: 100%;
+                height: auto;
+                border-radius: 10px;
+                margin-bottom: 15px;
+                box-shadow: 0 0 10px rgba(0, 255, 213, 0.5);
+            }
+
+            .item h3 {
+                margin: 10px 0 5px;
+                color: #fff;
+            }
+
+            .item p {
+                color: #ccc;
+                font-size: 1.1em;
+            }
+
+            .item button {
+                margin: 6px;
+                padding: 10px 15px;
+                border: none;
+                border-radius: 8px;
+                font-weight: bold;
+                cursor: pointer;
+                transition: background 0.3s ease, transform 0.2s ease;
+            }
+
+                .item button:hover {
+                    transform: scale(1.05);
+                }
+
+        .add-to-cart-btn, .buy-now-btn {
+            background: #4CAF50;
+            color: #fff;
+        }
+
+        .add-wishlist-btn {
+            background: #f39c12;
+            color: #fff;
+        }
+
+        .remove-from-cart-btn {
+            background: #e74c3c;
+            color: #fff;
+            font-size: 1em;
+        }
+
+        .review-input {
+            width: 80%;
+            padding: 8px;
+            margin: 8px 0;
+            border-radius: 5px;
+            border: none;
+            outline: none;
+        }
+
+        .coupon-input {
+            width: 140px;
+            padding: 8px;
+            border-radius: 6px;
+            border: none;
+            outline: none;
+        }
+
+        .checkout-btn, .apply-coupon-btn {
+            background: #2980b9;
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+            .checkout-btn:hover, .apply-coupon-btn:hover {
+                background: #3498db;
+            }
+
+        #orders-modal {
+            display: none;
+            position: fixed;
+            top: 10%;
+            left: 10%;
+            width: 80%;
+            height: 80%;
+            background: rgba(20, 20, 20, 0.95);
+            overflow: auto;
+            padding: 30px;
+            border: 2px solid #444;
+            border-radius: 10px;
+            color: #fff;
+        }
+
+            #orders-modal h2 {
+                text-align: center;
+                margin-bottom: 20px;
+                color: #00ffd5;
+            }
+
+            #orders-modal div {
+                border-bottom: 1px solid #555;
+                padding: 15px 0;
+            }
+
+            #orders-modal button {
+                display: block;
+                margin: 20px auto 0;
+                padding: 10px 20px;
+                background: #e74c3c;
+                border: none;
+                border-radius: 8px;
+                font-weight: bold;
+                color: #fff;
+                cursor: pointer;
+            }
+
+                #orders-modal button:hover {
+                    background: #ff6659;
+                }
+    </style>
+
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>9/11 Gaming PC Center</h1>
+    </div>
+    <div class="cart-btn" id="cart-display">Cart: 0</div>
+    <div class="view-orders-btn" onclick="viewOrders()">View Orders</div>
+    <div class="logout-btn" onclick="handleLogout()">Logout</div>
+
+    <!-- Coupon & Checkout -->
+    <div style="text-align:center; margin:20px 0;">
+      <input type="text" id="coupon-code" class="coupon-input" placeholder="Coupon code" />
+      <button class="apply-coupon-btn" onclick="applyCoupon()">Apply Coupon</button>
+      <button class="checkout-btn" onclick="checkout()">Checkout</button>
+    </div>
+
+    <!-- Items -->
+    <div id="item-container"></div>
+
+    <!-- Remove Last from Cart -->
+    <button class="remove-from-cart-btn" style="display:block; margin:20px auto;" onclick="removeFromCart()">
+      Remove Last Item from Cart
+    </button>
+
+    <!-- Orders Modal -->
+    <div id="orders-modal" style="display:none; position:fixed; top:10%; left:10%; width:80%; height:80%; background:#222; overflow:auto; padding:20px; border:2px solid #444;">
+      <h2>Your Orders</h2>
+      <div id="orders-list"></div>
+      <button onclick="document.getElementById('orders-modal').style.display='none'">Close</button>
+    </div>
+  </div>
+
+  <script>
+    const API = 'http://localhost:3000/api';
+    const userId = parseInt(sessionStorage.getItem('userId'), 10);
+    let items = [], cart = [], wishlist = [], appliedCoupon = null;
+
+    async function fetchProducts() {
+      const res = await fetch(`${API}/products`);
+      items = await res.json();
+      displayItems();
+    }
+
+    async function fetchCart() {
+      const res = await fetch(`${API}/cart/${userId}`);
+      console.log('> FETCH CART status:', res.status);
+      cart = await res.json();
+      console.log('> CART CONTENTS:', cart);
+      updateCartDisplay();
+    }
+
+    async function fetchWishlist() {
+      const res = await fetch(`${API}/wishlist/${userId}`);
+      wishlist = await res.json();
+    }
+
+    function generateItemHTML(item) {
+      return `
+        <div class="item">
+          <img src="${item.ImagePath}" alt="${item.Name}" />
+          <h3>${item.Name}</h3>
+          <p>Price: $${item.Price.toFixed(2)}</p>
+          <button class="buy-now-btn" onclick="redirectToVistaJet()">Buy Now</button>
+          <button class="add-to-cart-btn" onclick="addToCart(${item.ProductID}, '${item.Name}')">Add to Cart</button>
+          <button class="add-wishlist-btn" onclick="toggleWishlist(${item.ProductID})">
+            ${wishlist.includes(item.ProductID) ? 'Remove from Wishlist' : 'Add to Wishlist'}
+          </button>
+          <div>
+            <input type="number" id="review-score-${item.ProductID}" class="review-input" min="1" max="5" placeholder="Rating" />
+            <input type="text" id="review-text-${item.ProductID}" class="review-input" placeholder="Comment" />
+            <button onclick="submitReview(${item.ProductID})">Submit Review</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function displayItems() {
+      const container = document.getElementById('item-container');
+      container.innerHTML = '';
+      const categories = [...new Set(items.map(i => i.Category))];
+      categories.forEach(cat => {
+        container.innerHTML += `<div class="category-heading">${cat}</div>`;
+        items.filter(i => i.Category === cat).forEach(item => {
+          container.innerHTML += generateItemHTML(item);
+        });
+      });
+    }
+
+    function updateCartDisplay() {
+      const d = document.getElementById('cart-display');
+      d.textContent = cart.length
+        ? 'Cart: ' + cart.map(c => `${c.ProductName}×${c.Quantity}`).join(', ')
+        : 'Cart: 0';
+    }
+
+    async function addToCart(pid, name) {
+      const payload = { userId, productId: pid, productName: name };
+      console.log('> ADD TO CART payload:', payload);
+      const res = await fetch(`${API}/cart`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      console.log('> ADD TO CART status:', res.status, await res.text());
+      await fetchCart();
+    }
+
+    async function removeFromCart() {
+      if (!cart.length) return;
+      const last = cart[cart.length - 1];
+      await fetch(`${API}/cart/${userId}/${last.ProductID}`, { method: 'DELETE' });
+      await fetchCart();
+    }
+
+    async function toggleWishlist(pid) {
+      const inList = wishlist.includes(pid);
+      const url = inList
+        ? `${API}/wishlist/${userId}/${pid}`
+        : `${API}/wishlist`;
+      const options = inList
+        ? { method: 'DELETE' }
+        : {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, productId: pid })
+          };
+      const res = await fetch(url, options);
+      console.log('> WISHLIST status:', res.status, inList ? null : await res.text());
+      wishlist = inList ? wishlist.filter(x => x !== pid) : [...wishlist, pid];
+      displayItems();
+    }
+
+    async function submitReview(pid) {
+      const rating = +document.getElementById(`review-score-${pid}`).value;
+      const comment = document.getElementById(`review-text-${pid}`).value.trim();
+      if (!rating || !comment) return alert('Fill both fields');
+      const res = await fetch(`${API}/reviews`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, productId: pid, rating, comment })
+      });
+      if (!res.ok) return alert(await res.text());
+      alert('Review submitted');
+    }
+
+    async function applyCoupon() {
+      const code = document.getElementById('coupon-code').value.trim();
+      if (!code) return alert('Enter coupon code');
+      const res = await fetch(`${API}/coupons/apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code })
+      });
+      if (!res.ok) return alert(await res.text());
+      appliedCoupon = await res.json();
+      alert(`Applied ${appliedCoupon.Code}: ${appliedCoupon.DiscountPercent}% off`);
+    }
+
+    async function checkout() {
+      if (!cart.length) return alert('Cart empty');
+      const payload = {
+        userId,
+        items: cart.map(c => ({ productId: c.ProductID, quantity: c.Quantity })),
+        couponId: appliedCoupon?.CouponID
+      };
+      // FIXED: point checkout to the correct backend route
+      const res = await fetch(`${API}/checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) return alert(await res.text());
+      const { orderId } = await res.json();
+      alert(`Order placed (#${orderId})`);
+      appliedCoupon = null;
+      await fetchCart();
+    }
+
+    async function viewOrders() {
+      document.getElementById('orders-modal').style.display = 'block';
+      const list = document.getElementById('orders-list');
+      const res = await fetch(`${API}/orders/${userId}`);
+      if (!res.ok) return list.innerHTML = '<p>No orders found.</p>';
+      const orders = await res.json();
+      list.innerHTML = orders
+        .map(o => `
+          <div>
+            <h4>Order #${o.OrderID} — ${o.Status}</h4>
+            <p>Date: ${new Date(o.OrderDate).toLocaleString()}</p>
+            <p>Total: $${o.TotalAmount.toFixed(2)}</p>
+          </div>
+        `)
+        .join('');
+    }
+
+    function redirectToVistaJet() {
+      window.location.href = 'https://www.daraz.pk/';
+    }
+
+    function handleLogout() {
+      sessionStorage.clear();
+      window.location.href = 'index.html';
+    }
+
+    window.onload = async () => {
+      if (!userId) return window.location.href = 'index.html';
+      await fetchProducts();
+      await fetchCart();
+      await fetchWishlist();
+    };
+  </script>
+</body>
+</html>
