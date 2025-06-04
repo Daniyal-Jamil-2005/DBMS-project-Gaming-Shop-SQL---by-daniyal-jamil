@@ -1,0 +1,734 @@
+
+--Table creation, data insertion codes--
+--------------------------------------------------------------- ---------------------------------------------------------------
+-- 1. Create Database--
+IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'dbms_project_2025')
+BEGIN
+    CREATE DATABASE dbms_project_2025;
+END
+GO
+
+USE dbms_project_2025;
+GO
+
+-- 2. Core Tables
+
+CREATE TABLE dbo.Users (
+    UserID       INT IDENTITY(1,1) PRIMARY KEY,
+    Username     NVARCHAR(50) NOT NULL UNIQUE,
+    Email        NVARCHAR(100) NOT NULL UNIQUE,
+    Address      NVARCHAR(200) NULL,
+    CreatedAt    DATETIME2(0) NOT NULL DEFAULT GETDATE()
+);
+
+CREATE TABLE dbo.Categories (
+    CategoryID   INT IDENTITY(1,1) PRIMARY KEY,
+    Name         NVARCHAR(50) NOT NULL UNIQUE
+);
+
+CREATE TABLE dbo.Suppliers (
+    SupplierID   INT IDENTITY(1,1) PRIMARY KEY,
+    Name         NVARCHAR(100) NOT NULL,
+    ContactInfo  NVARCHAR(200) NULL
+);
+
+CREATE TABLE dbo.Products (
+    ProductID    INT IDENTITY(1,1) PRIMARY KEY,
+    Name         NVARCHAR(100) NOT NULL,
+    CategoryID   INT NOT NULL
+                   CONSTRAINT FK_Products_Categories FOREIGN KEY REFERENCES dbo.Categories(CategoryID),
+    SupplierID   INT NULL
+                   CONSTRAINT FK_Products_Suppliers FOREIGN KEY REFERENCES dbo.Suppliers(SupplierID),
+    Price        DECIMAL(10,2) NOT NULL,
+    ImagePath    NVARCHAR(200) NULL,
+    StockQty     INT NOT NULL DEFAULT 0
+);
+
+CREATE TABLE dbo.CartItems (
+    UserID       INT NOT NULL
+                   CONSTRAINT FK_CartItems_Users FOREIGN KEY REFERENCES dbo.Users(UserID),
+    ProductID    INT NOT NULL
+                   CONSTRAINT FK_CartItems_Products FOREIGN KEY REFERENCES dbo.Products(ProductID),
+    ProductName  NVARCHAR(100) NOT NULL,
+    Quantity     INT NOT NULL DEFAULT 1,
+    AddedAt      DATETIME2(0) NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT PK_CartItems PRIMARY KEY (UserID, ProductID)
+);
+
+-- 3. Transactional & Weak Entities
+
+CREATE TABLE dbo.Orders (
+    OrderID      INT IDENTITY(1,1) PRIMARY KEY,
+    UserID       INT NOT NULL
+                   CONSTRAINT FK_Orders_Users FOREIGN KEY REFERENCES dbo.Users(UserID),
+    OrderDate    DATETIME2(0) NOT NULL DEFAULT GETDATE(),
+    Status       NVARCHAR(20) NOT NULL DEFAULT 'Pending',
+    TotalAmount  DECIMAL(12,2) NOT NULL
+);
+
+CREATE TABLE dbo.OrderItems (
+    OrderID      INT NOT NULL
+                   CONSTRAINT FK_OrderItems_Orders FOREIGN KEY REFERENCES dbo.Orders(OrderID),
+    ProductID    INT NOT NULL
+                   CONSTRAINT FK_OrderItems_Products FOREIGN KEY REFERENCES dbo.Products(ProductID),
+    Quantity     INT NOT NULL,
+    UnitPrice    DECIMAL(10,2) NOT NULL,
+    CONSTRAINT PK_OrderItems PRIMARY KEY (OrderID, ProductID)
+);
+
+CREATE TABLE dbo.Payments (
+    PaymentID    INT IDENTITY(1,1) PRIMARY KEY,
+    OrderID      INT NOT NULL UNIQUE
+                   CONSTRAINT FK_Payments_Orders FOREIGN KEY REFERENCES dbo.Orders(OrderID),
+    Amount       DECIMAL(12,2) NOT NULL,
+    Method       NVARCHAR(30) NOT NULL,
+    TransactionID NVARCHAR(100) NOT NULL,
+    Status       NVARCHAR(20) NOT NULL
+);
+
+CREATE TABLE dbo.Shipments (
+    ShipmentID   INT IDENTITY(1,1) PRIMARY KEY,
+    OrderID      INT NOT NULL UNIQUE
+                   CONSTRAINT FK_Shipments_Orders FOREIGN KEY REFERENCES dbo.Orders(OrderID),
+    ShippedDate  DATETIME2(0) NULL,
+    Carrier      NVARCHAR(50) NULL,
+    TrackingNumber NVARCHAR(100) NULL
+);
+
+CREATE TABLE dbo.ShipmentTracking (
+    ShipmentID   INT NOT NULL
+                   CONSTRAINT FK_ShipTrack_Shipments FOREIGN KEY REFERENCES dbo.Shipments(ShipmentID),
+    StatusUpdate NVARCHAR(200) NOT NULL,
+    Timestamp    DATETIME2(0) NOT NULL DEFAULT GETDATE()
+);
+
+CREATE TABLE dbo.WishlistItems (
+    UserID       INT NOT NULL
+                   CONSTRAINT FK_Wishlist_Users FOREIGN KEY REFERENCES dbo.Users(UserID),
+    ProductID    INT NOT NULL
+                   CONSTRAINT FK_Wishlist_Products FOREIGN KEY REFERENCES dbo.Products(ProductID),
+    AddedAt      DATETIME2(0) NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT PK_WishlistItems PRIMARY KEY (UserID, ProductID)
+);
+
+CREATE TABLE dbo.Reviews (
+    UserID       INT NOT NULL
+                   CONSTRAINT FK_Reviews_Users FOREIGN KEY REFERENCES dbo.Users(UserID),
+    ProductID    INT NOT NULL
+                   CONSTRAINT FK_Reviews_Products FOREIGN KEY REFERENCES dbo.Products(ProductID),
+    Rating       INT NOT NULL CHECK (Rating BETWEEN 1 AND 5),
+    Comment      NVARCHAR(500) NOT NULL,
+    CreatedAt    DATETIME2(0) NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT PK_Reviews PRIMARY KEY (UserID, ProductID)
+);
+
+CREATE TABLE dbo.InventoryTransactions (
+    TransactionID INT IDENTITY(1,1) PRIMARY KEY,
+    ProductID     INT NOT NULL
+                   CONSTRAINT FK_InvTrans_Products FOREIGN KEY REFERENCES dbo.Products(ProductID),
+    ChangeQty     INT NOT NULL,
+    Timestamp     DATETIME2(0) NOT NULL DEFAULT GETDATE(),
+    Reason        NVARCHAR(200) NULL
+);
+
+CREATE TABLE dbo.Coupons (
+    CouponID      INT IDENTITY(1,1) PRIMARY KEY,
+    Code          NVARCHAR(50) NOT NULL UNIQUE,
+    DiscountPercent DECIMAL(5,2) NOT NULL,
+    ExpiryDate    DATE NOT NULL
+);
+
+CREATE TABLE dbo.OrderCoupons (
+    OrderID       INT NOT NULL
+                   CONSTRAINT FK_OrderCoupons_Orders FOREIGN KEY REFERENCES dbo.Orders(OrderID),
+    CouponID      INT NOT NULL
+                   CONSTRAINT FK_OrderCoupons_Coupons FOREIGN KEY REFERENCES dbo.Coupons(CouponID),
+    CONSTRAINT PK_OrderCoupons PRIMARY KEY (OrderID, CouponID)
+);
+
+CREATE TABLE dbo.Returns (
+    ReturnID      INT IDENTITY(1,1) PRIMARY KEY,
+    OrderID       INT NOT NULL
+                   CONSTRAINT FK_Returns_Orders FOREIGN KEY REFERENCES dbo.Orders(OrderID),
+    ProductID     INT NOT NULL
+                   CONSTRAINT FK_Returns_Products FOREIGN KEY REFERENCES dbo.Products(ProductID),
+    Quantity      INT NOT NULL,
+    ReturnReason  NVARCHAR(200) NULL,
+    ReturnDate    DATETIME2(0) NOT NULL DEFAULT GETDATE()
+);
+
+EXEC sp_rename 
+  N'dbo.Users.PasswordHash', 
+  N'Password', 
+  N'COLUMN';
+GO
+
+-- 3. Change its type to NVARCHAR(100) so it can hold your plaintext passwords
+ALTER TABLE dbo.Users
+ALTER COLUMN Password NVARCHAR(100) NOT NULL;
+GO
+
+select*from Users
+
+select*from Products
+
+
+-- Step 1: Insert Categories (if not already present)--
+INSERT INTO dbo.Categories (Name)
+VALUES ('CPU'), ('GPU'), ('RAM'), ('Case'), ('Power Supply');
+
+-- Step 2: Insert Suppliers (ContactInfo is optional here)--
+INSERT INTO dbo.Suppliers (Name, ContactInfo)
+VALUES 
+('Intel', 114456),
+('AMD', 223333333),
+('Nvidia', 03068715),
+('Cruical', 2234156),
+('Kingston', 00001111),
+('Cooler Master', 2233956),
+('Lianli', 8343743),
+('Bomb', 9843743);
+
+-- Step 3: Insert Products using subqueries for CategoryID and SupplierID
+INSERT INTO dbo.Products (Name, CategoryID, SupplierID, Price, ImagePath, StockQty)
+VALUES 
+('Intel I5 12th Gen',
+ (SELECT CategoryID FROM dbo.Categories WHERE Name = 'CPU'),
+ (SELECT SupplierID FROM dbo.Suppliers WHERE Name = 'Intel'),
+ 220.99, 'Pro1.webp', 15),
+
+('Amd Rx Ryzen 2600',
+ (SELECT CategoryID FROM dbo.Categories WHERE Name = 'CPU'),
+ (SELECT SupplierID FROM dbo.Suppliers WHERE Name = 'AMD'),
+ 120.00, 'Pro2.jpg', 12),
+
+('Amd Rx Ryzen 5600',
+ (SELECT CategoryID FROM dbo.Categories WHERE Name = 'CPU'),
+ (SELECT SupplierID FROM dbo.Suppliers WHERE Name = 'AMD'),
+ 250.99, 'Pro3.webp', 10),
+
+('AMD Rx 6700XT',
+ (SELECT CategoryID FROM dbo.Categories WHERE Name = 'GPU'),
+ (SELECT SupplierID FROM dbo.Suppliers WHERE Name = 'AMD'),
+ 399.99, 'Gpu1.jpg', 9),
+
+('AMD Rx 5500XT',
+ (SELECT CategoryID FROM dbo.Categories WHERE Name = 'GPU'),
+ (SELECT SupplierID FROM dbo.Suppliers WHERE Name = 'AMD'),
+ 200.99, 'Gpu2.jpg', 11),
+
+('Nvidia Geforce 3060 Ti',
+ (SELECT CategoryID FROM dbo.Categories WHERE Name = 'GPU'),
+ (SELECT SupplierID FROM dbo.Suppliers WHERE Name = 'Nvidia'),
+ 350.99, 'Gpu3.jpg', 8),
+
+('Cruical Basalisk DDR4 8 gb',
+ (SELECT CategoryID FROM dbo.Categories WHERE Name = 'RAM'),
+ (SELECT SupplierID FROM dbo.Suppliers WHERE Name = 'Cruical'),
+ 30.00, 'Ram1.jpg', 20),
+
+('Kingston Fury DDR5 8gb',
+ (SELECT CategoryID FROM dbo.Categories WHERE Name = 'RAM'),
+ (SELECT SupplierID FROM dbo.Suppliers WHERE Name = 'Kingston'),
+ 70.99, 'Ram2.webp', 18),
+
+('Cooler Master ATX-Case',
+ (SELECT CategoryID FROM dbo.Categories WHERE Name = 'Case'),
+ (SELECT SupplierID FROM dbo.Suppliers WHERE Name = 'Cooler Master'),
+ 200.99, 'Case1.jpeg', 7),
+
+('Lianli Mini ATX-Case',
+ (SELECT CategoryID FROM dbo.Categories WHERE Name = 'Case'),
+ (SELECT SupplierID FROM dbo.Suppliers WHERE Name = 'Lianli'),
+ 150.99, 'Case2.jpeg', 6),
+
+('Bomb power supply',
+ (SELECT CategoryID FROM dbo.Categories WHERE Name = 'Power Supply'),
+ (SELECT SupplierID FROM dbo.Suppliers WHERE Name = 'Bomb'),
+ 69.99, 'Mars.jpeg', 10);
+
+ select*from Users
+ select*from Suppliers
+ select*from Categories
+ select*from Products
+ select* from WishlistItems
+ select*from Orders
+ select*from OrderItems
+ select*from Reviews
+ select*from Coupons
+ select * from OrderCoupons
+
+INSERT INTO Coupons (Code, DiscountPercent, ExpiryDate)
+VALUES
+('69', 69, '2027-01-01'),
+('500', 5, '2026-02-02'),
+('9', 9, '2027-05-04'),
+('24', 4, '2026-02-04'),
+('6', 6, '2026-06-06');
+
+
+
+-- Queries For data manipulation start from here--
+/* ======================================================================  
+   STORED PROCEDURES  
+   ====================================================================== */  
+
+-- 1. Search Products by Name/Category  
+-- Purpose: Allows users to search for products by name with optional category filter
+-- Parameters:
+--    @SearchTerm: Partial product name to search
+--    @CategoryName (Optional): Filter by category name
+-- Joins Products and Categories tables for combined product/category data
+-- Uses LIKE operator for partial matches on product names
+GO
+CREATE PROCEDURE SearchProducts  
+    @SearchTerm NVARCHAR(100),  
+    @CategoryName NVARCHAR(50) = NULL  
+AS  
+BEGIN  
+    SELECT   
+        p.ProductID, p.Name, p.Price, c.Name AS Category  
+    FROM Products p  
+    JOIN Categories c ON p.CategoryID = c.CategoryID  
+    WHERE   
+        p.Name LIKE '%' + @SearchTerm + '%'  
+        AND (@CategoryName IS NULL OR c.Name = @CategoryName);  
+END;  
+GO  
+
+-- 2. Apply Coupon to Order  
+-- Purpose: Links valid coupons to orders for discounts
+-- Parameters:
+--    @OrderID: Target order for coupon application
+--    @CouponCode: Coupon code to validate and apply
+-- Checks coupon validity (exists and not expired)
+-- Maintains referential integrity through OrderCoupons junction table
+CREATE PROCEDURE ApplyCouponToOrder  
+    @OrderID INT,  
+    @CouponCode NVARCHAR(50)  
+AS  
+BEGIN  
+    DECLARE @CouponID INT = (  
+        SELECT CouponID   
+        FROM Coupons   
+        WHERE Code = @CouponCode AND ExpiryDate > GETDATE()  
+    );  
+    IF @CouponID IS NOT NULL  
+    BEGIN  
+        INSERT INTO OrderCoupons (OrderID, CouponID)  
+        VALUES (@OrderID, @CouponID);  
+    END  
+    ELSE  
+    BEGIN  
+        PRINT 'Invalid or expired coupon!';  
+    END  
+END;  
+GO  
+
+-- 3. Generate Monthly Sales Report  
+-- Purpose: Creates product-level sales report for given month/year
+-- Parameters:
+--    @Year: Report year in YYYY format
+--    @Month: Report month in MM format
+-- Aggregates sales data using SUM with product details
+-- Filters orders by specified month using YEAR/MONTH functions
+CREATE PROCEDURE GenerateMonthlySalesReport  
+    @Year INT,  
+    @Month INT  
+AS  
+BEGIN  
+    SELECT   
+        p.ProductID, p.Name,   
+        SUM(oi.Quantity) AS UnitsSold,  
+        SUM(oi.Quantity * oi.UnitPrice) AS Revenue  
+    FROM OrderItems oi  
+    JOIN Orders o ON oi.OrderID = o.OrderID  
+    JOIN Products p ON oi.ProductID = p.ProductID  
+    WHERE YEAR(o.OrderDate) = @Year AND MONTH(o.OrderDate) = @Month  
+    GROUP BY p.ProductID, p.Name;  
+END;  
+GO  
+
+-- 4. Delete Inactive Users  
+-- Purpose: Removes users who haven't interacted with the system beyond cutoff date
+-- Parameters:
+--    @CutoffDate: Threshold date for user inactivity
+-- Uses NOT IN with combined activity checks from Orders/Cart/Wishlist
+-- DELETE operation with safety checks through subqueries
+CREATE PROCEDURE DeleteInactiveUsers  
+    @CutoffDate DATE  
+AS  
+BEGIN  
+    DELETE FROM Users  
+    WHERE UserID NOT IN (  
+        SELECT UserID FROM Orders  
+        UNION  
+        SELECT UserID FROM CartItems  
+        UNION  
+        SELECT UserID FROM WishlistItems  
+    )  
+    AND CreatedAt < @CutoffDate;  
+END;  
+GO  
+
+-- 5. Get User Cart Total  
+-- Purpose: Calculates total value of a user's shopping cart
+-- Parameters:
+--    @UserID: Target user's ID
+-- Joins CartItems with Products to calculate sum of (price * quantity)
+-- Returns single monetary value representing cart total
+CREATE PROCEDURE GetUserCartTotal  
+    @UserID INT  
+AS  
+BEGIN  
+    SELECT   
+        SUM(p.Price * ci.Quantity) AS CartTotal  
+    FROM CartItems ci  
+    JOIN Products p ON ci.ProductID = p.ProductID  
+    WHERE ci.UserID = @UserID;  
+END;  
+GO  
+
+/* ======================================================================  
+   VIEWS  
+   ====================================================================== */  
+
+-- 6. Active Users with Orders  
+-- Purpose: Shows users with order history and order counts
+-- Joins Users and Orders tables
+-- Uses COUNT aggregation with GROUP BY for order statistics
+CREATE VIEW ActiveOrderingUsers AS  
+SELECT u.UserID, u.Username, COUNT(o.OrderID) AS TotalOrders  
+FROM Users u  
+JOIN Orders o ON u.UserID = o.UserID  
+GROUP BY u.UserID, u.Username;  
+GO  
+
+-- 7. Product Inventory Status  
+-- Purpose: Categorizes inventory levels for quick assessment
+-- Uses CASE statement to create human-readable stock status
+-- Classifies stock levels: Low (<10), Medium (10-20), High (>20)
+CREATE VIEW ProductInventory AS  
+SELECT   
+    p.ProductID, p.Name,   
+    p.StockQty,   
+    CASE   
+        WHEN p.StockQty < 10 THEN 'Low'  
+        WHEN p.StockQty BETWEEN 10 AND 20 THEN 'Medium'  
+        ELSE 'High'  
+    END AS StockStatus  
+FROM Products p;  
+GO  
+
+-- 8. Supplier Catalog  
+-- Purpose: Displays supplier product offerings with pricing
+-- Three-way join between Suppliers, Products, and Categories
+-- Provides complete product context for supplier management
+CREATE VIEW SupplierCatalog AS  
+SELECT   
+    s.Name AS Supplier,   
+    p.Name AS Product,   
+    p.Price,   
+    c.Name AS Category  
+FROM Products p  
+JOIN Suppliers s ON p.SupplierID = s.SupplierID  
+JOIN Categories c ON p.CategoryID = c.CategoryID;  
+GO  
+
+-- 9. User Order History  
+-- Purpose: Detailed order history with product-level information
+-- Multi-table join across Users, Orders, OrderItems, and Products
+-- Shows complete purchase history for customer support
+CREATE VIEW UserOrderHistory AS  
+SELECT   
+    u.UserID, u.Username,  
+    o.OrderID, o.OrderDate, o.TotalAmount,  
+    p.Name AS Product, oi.Quantity  
+FROM Users u  
+JOIN Orders o ON u.UserID = o.UserID  
+JOIN OrderItems oi ON o.OrderID = oi.OrderID  
+JOIN Products p ON oi.ProductID = p.ProductID;  
+GO  
+
+-- 10. Pending Reviews  
+-- Purpose: Identifies purchased products needing reviews
+-- Uses LEFT JOIN to find unreviewed products
+-- Essential for post-purchase engagement tracking
+CREATE VIEW PendingReviews AS  
+SELECT   
+    u.UserID, u.Username,   
+    p.ProductID, p.Name AS Product  
+FROM Users u  
+JOIN Orders o ON u.UserID = o.UserID  
+JOIN OrderItems oi ON o.OrderID = oi.OrderID  
+JOIN Products p ON oi.ProductID = p.ProductID  
+LEFT JOIN Reviews r ON u.UserID = r.UserID AND p.ProductID = r.ProductID  
+WHERE r.UserID IS NULL;  
+GO  
+
+/* ======================================================================  
+   COMPLEX QUERIES  
+   ====================================================================== */  
+
+-- 11. Users Who Never Ordered (Correlated Subquery)  
+-- Purpose: Finds inactive accounts without purchase history
+-- Uses NOT EXISTS with correlated subquery for efficient filtering
+SELECT u.UserID, u.Username, u.Email  
+FROM Users u  
+WHERE NOT EXISTS (  
+    SELECT 1  
+    FROM Orders o  
+    WHERE o.UserID = u.UserID  
+);  
+
+-- 12. Products Never Added to Wishlist  
+-- Purpose: Identifies unpopular products for marketing analysis
+-- Uses NOT IN with subquery against WishlistItems
+SELECT p.ProductID, p.Name  
+FROM Products p  
+WHERE p.ProductID NOT IN (  
+    SELECT ProductID  
+    FROM WishlistItems  
+);  
+
+-- 13. Total Sales per Category  
+-- Purpose: Category performance analysis
+-- Aggregates sales using SUM with Category grouping
+-- Orders results by descending sales for quick insights
+SELECT c.Name AS Category, SUM(oi.Quantity * oi.UnitPrice) AS TotalSales  
+FROM OrderItems oi  
+JOIN Products p ON oi.ProductID = p.ProductID  
+JOIN Categories c ON p.CategoryID = c.CategoryID  
+GROUP BY c.Name  
+ORDER BY TotalSales DESC;  
+
+-- 14. Top 5 Highest-Spending Users  
+-- Purpose: Identifies VIP customers for loyalty programs
+-- Uses TOP 5 with ORDER BY on aggregated spending
+SELECT TOP 5   
+    u.UserID, u.Username,   
+    SUM(o.TotalAmount) AS TotalSpent  
+FROM Users u  
+JOIN Orders o ON u.UserID = o.UserID  
+GROUP BY u.UserID, u.Username  
+ORDER BY TotalSpent DESC;  
+
+-- 15. Low-Stock Products  
+-- Purpose: Inventory replenishment alert
+-- Simple filter on StockQty column
+SELECT ProductID, Name, StockQty  
+FROM Products  
+WHERE StockQty < 10;  
+
+-- 16. Average Product Ratings  
+-- Purpose: Product quality assessment
+-- Uses AVG for ratings and COUNT for review volume
+-- LEFT JOIN includes products without reviews
+SELECT   
+    p.ProductID, p.Name,   
+    AVG(r.Rating) AS AvgRating,  
+    COUNT(r.Comment) AS TotalReviews  
+FROM Products p  
+LEFT JOIN Reviews r ON p.ProductID = r.ProductID  
+GROUP BY p.ProductID, p.Name;  
+
+-- 17. Orders with Active Coupons  
+-- Purpose: Validates coupon usage in order processing
+-- JOINs through OrderCoupons to check coupon validity
+SELECT o.OrderID, o.TotalAmount, c.DiscountPercent  
+FROM Orders o  
+JOIN OrderCoupons oc ON o.OrderID = oc.OrderID  
+JOIN Coupons c ON oc.CouponID = c.CouponID  
+WHERE c.ExpiryDate > GETDATE();  
+
+-- 18. Pending Shipments  
+-- Purpose: Identifies unfulfilled orders for logistics
+-- Checks for NULL ShippedDate in Shipments
+SELECT   
+    o.OrderID, u.Username,   
+    s.ShippedDate, st.StatusUpdate  
+FROM Orders o  
+JOIN Users u ON o.UserID = u.UserID  
+JOIN Shipments s ON o.OrderID = s.OrderID  
+JOIN ShipmentTracking st ON s.ShipmentID = st.ShipmentID  
+WHERE s.ShippedDate IS NULL;  
+
+-- 19. Products Priced Above Average  
+-- Purpose: Premium product identification
+-- Uses subquery to calculate average price
+SELECT ProductID, Name, Price  
+FROM Products  
+WHERE Price > (SELECT AVG(Price) FROM Products);  
+
+-- 20. Users with Recent Orders (Last 30 Days)  
+-- Purpose: Engaged customer identification
+-- Uses DATEADD for date range calculation
+SELECT u.UserID, u.Username  
+FROM Users u  
+WHERE EXISTS (  
+    SELECT 1  
+    FROM Orders o  
+    WHERE o.UserID = u.UserID  
+    AND o.OrderDate >= DATEADD(MONTH, -1, GETDATE())  
+);  
+
+-- 21. Deduct Stock via Transaction  
+-- Purpose: Atomic inventory update with audit trail
+-- Uses explicit transaction for data consistency
+BEGIN TRANSACTION;  
+UPDATE Products  
+SET StockQty = StockQty - 5  -- Example: Deduct 5 units  
+WHERE ProductID = 1;  
+INSERT INTO InventoryTransactions (ProductID, ChangeQty, Reason)  
+VALUES (1, -5, 'Order fulfillment');  
+COMMIT TRANSACTION;  
+
+-- 22. Monthly Revenue  
+-- Purpose: Financial performance tracking
+-- Uses FORMAT function for date grouping
+SELECT   
+    FORMAT(OrderDate, 'yyyy-MM') AS Month,  
+    SUM(TotalAmount) AS Revenue  
+FROM Orders  
+GROUP BY FORMAT(OrderDate, 'yyyy-MM')  
+ORDER BY Month;  
+
+-- 23. Products in Cart but Never Ordered  
+-- Purpose: Abandoned cart analysis
+-- Uses NOT EXISTS to filter unordered cart items
+SELECT DISTINCT p.ProductID, p.Name  
+FROM CartItems ci  
+JOIN Products p ON ci.ProductID = p.ProductID  
+WHERE NOT EXISTS (  
+    SELECT 1  
+    FROM OrderItems oi  
+    WHERE oi.ProductID = ci.ProductID  
+);  
+
+-- 24. Average Order Value  
+-- Purpose: Business metric calculation
+SELECT AVG(TotalAmount) AS AvgOrderValue  
+FROM Orders;  
+
+-- 25. Users with Abandoned Carts (>7 Days Old)  
+-- Purpose: Cart abandonment follow-up
+-- Uses DATEADD for age calculation
+SELECT u.UserID, u.Username  
+FROM Users u  
+WHERE EXISTS (  
+    SELECT 1  
+    FROM CartItems ci  
+    WHERE ci.UserID = u.UserID  
+    AND ci.AddedAt < DATEADD(DAY, -7, GETDATE())  
+);  
+
+-- 26. Products with No Reviews  
+-- Purpose: Identifies under-reviewed products
+SELECT p.ProductID, p.Name  
+FROM Products p  
+LEFT JOIN Reviews r ON p.ProductID = r.ProductID  
+WHERE r.ProductID IS NULL;  
+
+-- 27. Orders with Out-of-Stock Items  
+-- Purpose: Identifies fulfillment issues
+SELECT o.OrderID  
+FROM Orders o  
+WHERE NOT EXISTS (  
+    SELECT 1  
+    FROM OrderItems oi  
+    JOIN Products p ON oi.ProductID = p.ProductID  
+    WHERE oi.OrderID = o.OrderID AND p.StockQty > 0  
+);  
+
+-- 28. Process Return & Restock (Transaction)  
+-- Purpose: Handles product returns atomically
+BEGIN TRANSACTION;  
+INSERT INTO Returns (OrderID, ProductID, Quantity, ReturnReason)  
+VALUES (1001, 5, 2, 'Defective product');  
+UPDATE Products  
+SET StockQty = StockQty + 2  
+WHERE ProductID = 5;  
+COMMIT TRANSACTION;  
+
+-- 29. Top 3 Most Reviewed Products  
+-- Purpose: Popular product identification
+SELECT TOP 3   
+    p.ProductID, p.Name,   
+    COUNT(r.Comment) AS ReviewCount  
+FROM Products p  
+LEFT JOIN Reviews r ON p.ProductID = r.ProductID  
+GROUP BY p.ProductID, p.Name  
+ORDER BY ReviewCount DESC;  
+
+-- 30. Users Who Bought Same Product Twice  
+-- Purpose: Repeat purchase analysis
+SELECT DISTINCT u.UserID, u.Username  
+FROM Users u  
+WHERE EXISTS (  
+    SELECT oi.ProductID  
+    FROM OrderItems oi  
+    JOIN Orders o ON oi.OrderID = o.OrderID  
+    WHERE o.UserID = u.UserID  
+    GROUP BY oi.ProductID  
+    HAVING COUNT(*) >= 2  
+);  
+
+-- 31. Verify Orphaned OrderItems (FK Check)  
+-- Purpose: Data integrity validation
+SELECT oi.*  
+FROM OrderItems oi  
+LEFT JOIN Products p ON oi.ProductID = p.ProductID  
+WHERE p.ProductID IS NULL;  
+
+-- 32. Total Coupon Discounts Applied  
+-- Purpose: Marketing effectiveness measurement
+SELECT   
+    SUM(c.DiscountPercent * o.TotalAmount / 100) AS TotalDiscounts  
+FROM Orders o  
+JOIN OrderCoupons oc ON o.OrderID = oc.OrderID  
+JOIN Coupons c ON oc.CouponID = c.CouponID  
+WHERE c.ExpiryDate > GETDATE();  
+
+-- 33. Sales by Supplier (Rollup)  
+-- Purpose: Supplier performance with subtotals
+SELECT   
+    s.Name AS Supplier,  
+    c.Name AS Category,  
+    SUM(oi.Quantity * oi.UnitPrice) AS TotalSales  
+FROM OrderItems oi  
+JOIN Products p ON oi.ProductID = p.ProductID  
+JOIN Suppliers s ON p.SupplierID = s.SupplierID  
+JOIN Categories c ON p.CategoryID = c.CategoryID  
+GROUP BY ROLLUP(s.Name, c.Name);  
+
+-- 34. Coupons Never Used  
+-- Purpose: Coupon effectiveness analysis
+SELECT CouponID, Code  
+FROM Coupons  
+WHERE CouponID NOT IN (  
+    SELECT CouponID FROM OrderCoupons  
+);  
+
+-- 35. Price Change Audit  
+-- Purpose: Tracks historical price adjustments
+SELECT   
+    p.ProductID, p.Name,   
+    it.Timestamp, it.ChangeQty  
+FROM InventoryTransactions it  
+JOIN Products p ON it.ProductID = p.ProductID  
+WHERE it.Reason LIKE '%price%';  
+
+-- Join query to get all user data against order data--
+select*from Orders O join Users U on O.UserID = U.UserID
+
+select* from UserOrderHistory
+
+select * from ActiveOrderingUsers
+
+Exec GenerateMonthlySalesReport @year = 2025,@month = 5;
+
+
+Exec SearchProducts @searchterm = 'Amd', @categoryname ='gpu';
+
+
+select*from users
